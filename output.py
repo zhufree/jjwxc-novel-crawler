@@ -235,13 +235,17 @@ def rename_chapter_files(source_dir, chapter_data, config):
         # 在href_list中查找对应章节的标题
         new_name = filename  # fallback
         for idx, url in enumerate(chapter_data.href_list):
-            url_chap_id = url.split('=')[2]
-            if str(url_chap_id) == str(chap_num):
-                title = chapter_data.titleindex[idx].strip()
-                title = utils.convert_text(title, config.state)
-                title = utils.sanitize_filename(title)
-                new_name = f"{title}.txt"
-                break
+            # 从URL中正确提取chapterId参数
+            import re
+            match = re.search(r'chapterId=(\d+)', url)
+            if match:
+                url_chap_id = match.group(1)
+                if str(url_chap_id) == str(chap_num):
+                    title = chapter_data.titleindex[idx].strip()
+                    title = utils.convert_text(title, config.state)
+                    title = utils.sanitize_filename(title)
+                    new_name = f"{idx+1:0{chapter_data.fill_num}d}_{title}.txt"
+                    break
         new_path = os.path.join(source_dir, new_name)
         if filepath != new_path and not os.path.exists(new_path):
             os.rename(filepath, new_path)
