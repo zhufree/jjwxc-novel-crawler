@@ -66,11 +66,12 @@ def build_index(chapter_data, loc, config):
     """
     index = []
     for idx, url in enumerate(chapter_data.href_list):
-        titleOrigin = url.split('=')
+        m = re.search(r'chapterId=(\d+)', url)
+        chap_id = m.group(1) if m else url.split('=')[-1]
         title = ''
-        if titleOrigin[2] in loc:
+        if chap_id in loc:
             title += "[锁]"
-        title += str(titleOrigin[2]) + " "
+        title += chap_id + " "
         title += chapter_data.titleindex[idx].strip() + " "
         title += chapter_data.summary_list[idx].strip()
         title = utils.convert_text(title, config.state)
@@ -87,17 +88,18 @@ def build_title(chapter_url, chapter_data, config):
     :param config: DownloadConfig
     :return: 标题字符串
     """
-    titleOrigin = chapter_url.split('=')
+    m = re.search(r'chapterId=(\d+)', chapter_url)
+    chap_id = m.group(1) if m else chapter_url.split('=')[-1]
     idx = chapter_data.href_list.index(chapter_url)
     title = ''
 
     if config.custom_title:
-        title = re.sub(r'\$1', str(titleOrigin[2]), config.custom_title)
+        title = re.sub(r'\$1', chap_id, config.custom_title)
         title = re.sub(r'\$2', chapter_data.titleindex[idx].strip(), title)
         title = re.sub(r'\$3', chapter_data.summary_list[idx].strip(), title)
     else:
         if config.show_number:
-            title = str(titleOrigin[2])
+            title = chap_id
             if config.format_type == 'txt':
                 title += " #"
         if config.show_title:

@@ -1,0 +1,14 @@
+{
+  "properties": {
+    "url": {
+      "description": "Novel page URL, e.g. https://www.jjwxc.net/onebook.php?novelid=9091462",
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "title": "NovelUrl",
+  "type": "object"
+}

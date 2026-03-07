@@ -27,6 +27,8 @@ class DownloadConfig:
         self.chapter_end = 0  # 结束章节号(0表示到最后)
         self.save_per_chapter = False  # 按章保存(仅txt)
         self.remove_blank_lines = False  # 去除段间空行(仅txt)
+        self.output_dir = ''  # 输出目录，空字符串则使用临时目录
+        self.validate_only = False  # 仅验证URL和token，不实际下载
 
 
 class NovelInfo:

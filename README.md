@@ -18,9 +18,8 @@
 - **自定义标题**：支持自定义章节标题和卷标格式
 - **自定义 CSS**：EPUB 格式支持自定义样式
 - **多线程下载**：支持设置线程数，加快下载速度
-- **双版本界面**：
-  - **桌面版** (`main_ttkui.py`)：基于 ttkbootstrap，轻量快速
-  - **网页版** (`app.py`)：基于 NiceGUI，现代美观
+- **桌面 GUI**：基于 QFluentWidgets 的现代风格界面
+- **AI Skill 接口**：可直接作为 OpenClaw / AutoGen / LangChain 等 AI Agent 的工具使用
 
 ---
 
@@ -39,9 +38,14 @@
    pip install -r requirements.txt
    ```
 
-3. **运行程序**
-   - 桌面版：`python main_ttkui.py`
-   - 网页版：`python app.py`（浏览器访问 http://localhost:8080）
+3. **运行桌面 GUI**
+   ```bash
+   python main.py
+   ```
+
+4. **填写配置**（首次运行）
+   - 程序启动后在「基础设置」页填入 Token 并保存，配置会写入 `config.yml`
+   - 也可直接编辑项目根目录下的 `config.yml`（参考 `config.yml.example`）
 
 ---
 
@@ -49,9 +53,21 @@
 
 ### 1. 获取 Token
 
-1. 在手机上安装晋江 App 并登录
-2. 使用抓包工具（如 HttpCanary）抓取请求
-3. 在请求头中找到 `token` 参数，复制到程序中
+Token 是登录晋江 App 后的身份凭证，用于下载收费章节。**免费章节无需 Token。**
+
+#### 抓包步骤（Android）
+1. 手机安装晋江 App 并登录账号
+2. 安装抓包工具，推荐 **HttpCanary**（免费）或 **Charles**
+3. 开启抓包，在晋江 App 中随意点开一章正文
+4. 在抓包记录中找到请求域名含 `jjwxc.net` 的条目
+5. 查看请求 URL 的 Query 参数，找到 `token=xxxxxxxx` 字段
+6. 复制 token 值（通常为数字+字母组成的长字符串）
+
+#### 保存 Token
+- **GUI 用户**：在「基础设置」页的 Token 输入框中填入，点击「保存配置」即可持久化到 `config.yml`
+- **命令行 / AI 调用**：在 `config.yml` 中手动填写 `token:` 字段，或在调用时直接作为参数传入
+
+> ⚠️ Token 有效期有限，若下载收费章节失败，请重新抓包更新 Token。
 
 ### 2. 下载小说
 
@@ -79,20 +95,38 @@
 
 ```
 jjwxcNovelCrawler/
-├── main_ttkui.py    # 桌面版 GUI（ttkbootstrap）
-├── app.py           # 网页版 GUI（NiceGUI）
-├── downloader.py    # 下载器核心逻辑
-├── models.py        # 数据模型
-├── chapter.py       # 章节内容处理
-├── output.py        # 文件输出处理
-├── api.py           # API 调用
-├── utils.py         # 工具函数
-├── DESCBC.py        # 解密模块
-├── EPUB2.py         # EPUB2 生成
-├── EPUB3.py         # EPUB3 生成
-├── config.yml       # 配置文件（自动生成）
-└── requirements.txt # 依赖列表
+├── main.py              # 桌面版 GUI（QFluentWidgets）
+├── downloader.py        # 下载器核心逻辑
+├── models.py            # 数据模型
+├── chapter.py           # 章节内容处理
+├── output.py            # 文件输出处理
+├── api.py               # API 调用
+├── utils.py             # 工具函数
+├── DESCBC.py            # 解密模块
+├── EPUB2.py             # EPUB2 生成
+├── EPUB3.py             # EPUB3 生成
+├── config.yml           # 配置文件（自动生成）
+├── requirements.txt     # 依赖列表
+│
+├── tools/               # AI Agent / LLM 工具接口
+│   ├── tools.py         # 工具函数（Pydantic 输入模型 + 英文 docstring）
+│   ├── get_novel_info.json   # OpenAI JSON Schema
+│   ├── list_chapters.json
+│   └── download_novel.json
+│
+├── docs/                # 文档
+│   ├── instructions.md  # AI 系统级提示词
+│   └── examples/        # few-shot 调用示例
+│       ├── example-1-query-info.md
+│       ├── example-2-download-txt.md
+│       ├── example-3-download-epub-range.md
+│       └── example-4-per-chapter-save.md
+│
+├── SKILL.md             # AI Skill 元数据（YAML frontmatter）
+└── README-AI.md         # AI Agent 集成指南
 ```
+
+> AI Agent 使用者请直接查阅 [README-AI.md](README-AI.md)。
 
 ---
 
@@ -104,5 +138,10 @@ jjwxcNovelCrawler/
 - 确认已购买 VIP 章节
 
 **Q: 如何打包成 EXE？**
-- 桌面版：`pyinstaller --onefile --windowed main_ttkui.py`
-- 网页版：`nicegui-pack --onefile --name "jjdownload" app.py`
+```bash
+pyinstaller --onefile --windowed main.py
+```
+
+**Q: config.yml 在哪里？**
+- 首次运行 GUI 并保存配置后自动生成，位于项目根目录
+- 可参考 `config.yml.example` 手动创建，`token` 字段填入抓包获取的值

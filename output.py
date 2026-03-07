@@ -18,23 +18,24 @@ import utils
 from models import DownloadConfig, NovelInfo, ChapterData
 
 
-def save_chapter_file(chapter_url, title, content, config):
+def save_chapter_file(chapter_url, title, content, config, output_dir=''):
     """
     保存单个章节到文件
     :param chapter_url: 章节URL（用于提取章节号）
     :param title: 章节标题
     :param content: 格式化后的内容
     :param config: DownloadConfig
+    :param output_dir: 输出目录（绝对路径），空字符串则写入当前目录
     """
-    titleOrigin = chapter_url.split('=')
-    chap_num = titleOrigin[2].zfill(4)
+    m = re.search(r'chapterId=(\d+)', chapter_url)
+    chap_num = m.group(1).zfill(4) if m else chapter_url.split('=')[-1].zfill(4)
 
     if config.format_type == 'txt':
-        filename = "z" + chap_num + ".txt"
+        filename = os.path.join(output_dir, "z" + chap_num + ".txt") if output_dir else "z" + chap_num + ".txt"
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(content)
     else:
-        filename = "z" + chap_num + ".xhtml"
+        filename = os.path.join(output_dir, "z" + chap_num + ".xhtml") if output_dir else "z" + chap_num + ".xhtml"
         with open(filename, 'w', encoding='utf-8') as f:
             f.write('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
@@ -218,6 +219,7 @@ def rename_chapter_files(source_dir, chapter_data, config):
     :param config: DownloadConfig
     """
     import utils
+    import chapter as chapter_mod
     filenames = sorted(os.listdir(source_dir))
     for filename in filenames:
         if not filename.endswith('.txt'):
@@ -236,15 +238,16 @@ def rename_chapter_files(source_dir, chapter_data, config):
         new_name = filename  # fallback
         for idx, url in enumerate(chapter_data.href_list):
             # 从URL中正确提取chapterId参数
-            import re
             match = re.search(r'chapterId=(\d+)', url)
             if match:
                 url_chap_id = match.group(1)
                 if str(url_chap_id) == str(chap_num):
-                    title = chapter_data.titleindex[idx].strip()
-                    title = utils.convert_text(title, config.state)
+                    # 使用 build_title 构建标题，支持自定义格式
+                    title = chapter_mod.build_title(url, chapter_data, config)
+                    # 去除 txt 格式的 " #" 后缀
+                    title = title.replace(' #', '').strip()
                     title = utils.sanitize_filename(title)
-                    new_name = f"{idx+1:0{chapter_data.fill_num}d}_{title}.txt"
+                    new_name = f"{title}.txt"
                     break
         new_path = os.path.join(source_dir, new_name)
         if filepath != new_path and not os.path.exists(new_path):
@@ -260,6 +263,10 @@ def merge_txt_files(source_dir, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         filenames = sorted(os.listdir(source_dir))
         for filename in filenames:
+            if not filename.endswith('.txt'):
+                continue
+            if filename == 'info.txt' or '_vol' in filename:
+                continue
             filepath = os.path.join(source_dir, filename)
             for line in open(filepath, encoding='utf-8', errors='ignore'):
                 f.writelines(line)

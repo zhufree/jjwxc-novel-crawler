@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "url": {
+      "description": "Novel page URL containing novelid parameter.",
+      "title": "Url",
+      "type": "string"
+    },
+    "state": {
+      "default": "",
+      "description": "Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "title": "ListChaptersInput",
+  "type": "object"
+}

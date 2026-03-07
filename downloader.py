@@ -4,6 +4,9 @@
 组合api、chapter、output模块，编排完整的下载流程
 """
 import os
+import re
+import tempfile
+import threading
 import concurrent.futures
 
 import api
@@ -34,6 +37,7 @@ class NovelDownloader:
         self.current_title = ''
         self.novel_info = None
         self.chapter_data = None
+        self._lock = threading.Lock()
 
     def _log(self, message):
         if self.log_callback:
@@ -53,12 +57,14 @@ class NovelDownloader:
         )
         self.current_title = title
 
-        if failed:
-            chap_id = chapter_url.split('=')[2]
-            self.fail_info.append(chap_id.zfill(self.chapter_data.fill_num))
+        with self._lock:
+            if failed:
+                m = re.search(r'chapterId=(\d+)', chapter_url)
+                chap_id = m.group(1) if m else chapter_url.split('=')[-1]
+                self.fail_info.append(chap_id.zfill(self.chapter_data.fill_num))
+            self.percent += 1
 
-        output.save_chapter_file(chapter_url, title, content, self.config)
-        self.percent += 1
+        output.save_chapter_file(chapter_url, title, content, self.config, self._output_dir)
 
     def download_novel(self, url, threadnum=None):
         """
@@ -71,7 +77,10 @@ class NovelDownloader:
         threadnum = threadnum or self.config.thread_num
 
         # 解析小说ID
-        nid = url.split('=')[1]
+        m = re.search(r'novelid=(\d+)', url)
+        if not m:
+            return False, None, "Invalid URL: must contain novelid=<digits>"
+        nid = m.group(1)
 
         # 获取小说信息
         self._log("正在获取小说信息...")
@@ -121,12 +130,16 @@ class NovelDownloader:
 
         # 准备输出目录
         ti = utils.sanitize_filename(ti) + '.' + nid
-        base_path = os.getcwd()
+        cfg_out = getattr(self.config, 'output_dir', '')
+        if cfg_out:
+            base_path = os.path.abspath(cfg_out)
+        else:
+            base_path = os.path.join(tempfile.gettempdir(), 'jjwxc_downloads')
+        os.makedirs(base_path, exist_ok=True)
 
         output_dir = os.path.join(base_path, ti)
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
-        os.chdir(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+        self._output_dir = output_dir
 
         # 保存卷标
         output.save_volume_files(self.chapter_data, self.config, output_dir)
@@ -160,20 +173,18 @@ class NovelDownloader:
             self.fail_info.sort()
             self._log(f"\n未购买或加载失败章节：\n{'|'.join(self.fail_info)}")
 
-        # 生成最终文件
-        os.chdir(base_path)
+        # 生成最终文件（全部使用绝对路径，不依赖 cwd）
         if self.config.format_type == "txt":
             if self.config.save_per_chapter:
-                # 按章保存：重命名临时文件到可读文件名
                 output.rename_chapter_files(output_dir, self.chapter_data, self.config)
                 output_file = output_dir
                 self._log(f"\ntxt按章保存完成，目录：{output_dir}")
             else:
-                output_file = ti + ".txt"
+                output_file = os.path.join(base_path, ti + ".txt")
                 output.merge_txt_files(output_dir, output_file)
                 self._log("\ntxt文件整合完成")
         else:
-            output_file = ti + ".epub"
+            output_file = os.path.join(base_path, ti + ".epub")
             output.create_epub(
                 output_file, info.author, info.title, ti,
                 self.chapter_data.index, self.chapter_data.roll_sign,

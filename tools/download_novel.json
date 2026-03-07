@@ -1,0 +1,140 @@
+{
+  "properties": {
+    "url": {
+      "description": "Novel page URL containing novelid parameter.",
+      "title": "Url",
+      "type": "string"
+    },
+    "token": {
+      "default": "",
+      "description": "Jjwxc App user token. Required for paid (locked) chapters.",
+      "title": "Token",
+      "type": "string"
+    },
+    "format_type": {
+      "default": "txt",
+      "description": "Output format: 'txt', 'epub2', or 'epub3'.",
+      "title": "Format Type",
+      "type": "string"
+    },
+    "output_dir": {
+      "default": "",
+      "description": "Directory to save output files. Defaults to a temp folder (tempfile.gettempdir()/jjwxc_downloads). In production, always set this explicitly.",
+      "title": "Output Dir",
+      "type": "string"
+    },
+    "state": {
+      "default": "",
+      "description": "Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
+      "title": "State",
+      "type": "string"
+    },
+    "thread_num": {
+      "default": 100,
+      "description": "Number of concurrent download threads. Recommended: 50–200.",
+      "title": "Thread Num",
+      "type": "integer"
+    },
+    "chapter_start": {
+      "default": 0,
+      "description": "First chapter to download (1-indexed). 0 means start from chapter 1.",
+      "title": "Chapter Start",
+      "type": "integer"
+    },
+    "chapter_end": {
+      "default": 0,
+      "description": "Last chapter to download (inclusive). 0 means download to the last chapter.",
+      "title": "Chapter End",
+      "type": "integer"
+    },
+    "save_per_chapter": {
+      "default": false,
+      "description": "TXT only. True = save each chapter as a separate file; False = merge into one file.",
+      "title": "Save Per Chapter",
+      "type": "boolean"
+    },
+    "remove_blank_lines": {
+      "default": false,
+      "description": "TXT only. Remove blank lines between paragraphs.",
+      "title": "Remove Blank Lines",
+      "type": "boolean"
+    },
+    "show_number": {
+      "default": true,
+      "description": "Include chapter ID number in the chapter heading.",
+      "title": "Show Number",
+      "type": "boolean"
+    },
+    "show_title": {
+      "default": true,
+      "description": "Include chapter title text in the chapter heading.",
+      "title": "Show Title",
+      "type": "boolean"
+    },
+    "show_summary": {
+      "default": true,
+      "description": "Include chapter summary in the chapter heading.",
+      "title": "Show Summary",
+      "type": "boolean"
+    },
+    "show_chinfo": {
+      "default": false,
+      "description": "Prepend word count and update date at the start of each chapter.",
+      "title": "Show Chinfo",
+      "type": "boolean"
+    },
+    "del_thanks": {
+      "default": false,
+      "description": "Strip boilerplate 'thank you for the nutrient solution / landmine' lines from author's notes.",
+      "title": "Del Thanks",
+      "type": "boolean"
+    },
+    "add_cover": {
+      "default": true,
+      "description": "EPUB only. Download and embed the cover image.",
+      "title": "Add Cover",
+      "type": "boolean"
+    },
+    "html_vol": {
+      "default": false,
+      "description": "EPUB2 only. Render volume titles as standalone HTML pages.",
+      "title": "Html Vol",
+      "type": "boolean"
+    },
+    "special_intro": {
+      "default": false,
+      "description": "Use the web-page version of the novel synopsis (preserves original HTML layout). Default uses plain-text API synopsis.",
+      "title": "Special Intro",
+      "type": "boolean"
+    },
+    "custom_title": {
+      "default": "",
+      "description": "Custom chapter heading template. Variables: $1 = chapter ID, $2 = title, $3 = summary. Empty = use default.",
+      "title": "Custom Title",
+      "type": "string"
+    },
+    "custom_vol": {
+      "default": "",
+      "description": "Custom volume title template. Variables: $1 = volume index, $2 = volume name. Empty = default '§ name §'.",
+      "title": "Custom Vol",
+      "type": "string"
+    },
+    "css_text": {
+      "default": "",
+      "description": "EPUB only. Custom CSS string embedded in the EPUB stylesheet.",
+      "title": "Css Text",
+      "type": "string"
+    },
+    "validate_only": {
+      "default": false,
+      "description": "If True, verify that the URL is reachable and the token is valid (by fetching novel info) without performing the actual download. Returns success=True and output_file='' if validation passes.",
+      "title": "Validate Only",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "title": "DownloadInput",
+  "type": "object"
+}

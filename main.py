@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSizePolicy, QFrame, QScrollArea
+    QLabel, QSizePolicy, QFrame, QScrollArea, QFileDialog
 )
 
 from qfluentwidgets import (
@@ -195,13 +195,13 @@ class BasicSettingPage(SettingPanel):
         self.ch_start_spin = SpinBox()
         self.ch_start_spin.setRange(0, 99999)
         self.ch_start_spin.setValue(0)
-        self.ch_start_spin.setFixedWidth(100)
+        self.ch_start_spin.setFixedWidth(150)
         range_row.addWidget(self.ch_start_spin)
         range_row.addWidget(BodyLabel('章  到第'))
         self.ch_end_spin = SpinBox()
         self.ch_end_spin.setRange(0, 99999)
         self.ch_end_spin.setValue(0)
-        self.ch_end_spin.setFixedWidth(100)
+        self.ch_end_spin.setFixedWidth(150)
         range_row.addWidget(self.ch_end_spin)
         range_row.addWidget(BodyLabel('章'))
         range_row.addStretch(1)
@@ -270,8 +270,32 @@ class BasicSettingPage(SettingPanel):
         opts_layout.addLayout(row4)
         self._add_group('标题与内容选项', opts_card)
 
+        # ---- 输出目录 ----
+        outdir_card = _make_card(self._scroll_widget)
+        outdir_layout = QVBoxLayout(outdir_card)
+        outdir_layout.setContentsMargins(20, 16, 20, 16)
+        outdir_layout.setSpacing(6)
+        outdir_layout.addWidget(BodyLabel('输出目录（下载文件保存位置）'))
+        outdir_row = QHBoxLayout()
+        outdir_row.setSpacing(8)
+        self.outdir_edit = LineEdit()
+        self.outdir_edit.setPlaceholderText('留空则保存到程序所在目录')
+        self.outdir_edit.setClearButtonEnabled(True)
+        self.outdir_browse_btn = PushButton(FIF.FOLDER, '浏览')
+        self.outdir_browse_btn.setFixedWidth(90)
+        self.outdir_browse_btn.clicked.connect(self._browse_outdir)
+        outdir_row.addWidget(self.outdir_edit, 1)
+        outdir_row.addWidget(self.outdir_browse_btn)
+        outdir_layout.addLayout(outdir_row)
+        self._add_group('输出目录', outdir_card)
+
         # 初始化格式相关状态
         self._on_format_changed(self.fmt_combo.currentText())
+
+    def _browse_outdir(self):
+        d = QFileDialog.getExistingDirectory(self, '选择输出目录', self.outdir_edit.text() or _BASE_DIR)
+        if d:
+            self.outdir_edit.setText(d)
 
     def _on_format_changed(self, fmt):
         is_txt = fmt == 'txt'
@@ -319,6 +343,7 @@ class BasicSettingPage(SettingPanel):
         if conf.get('volumn') and isinstance(conf['volumn'], str):
             self.chk_selfvol.setChecked(True)
             self.volfmt_edit.setText(conf['volumn'])
+        self.outdir_edit.setText(conf.get('output_dir', ''))
 
     def save_config(self):
         if os.path.exists(CONFIG_FILE):
@@ -344,6 +369,7 @@ class BasicSettingPage(SettingPanel):
         doc['htmlvol'] = 1 if self.chk_htmlvol.isChecked() else 0
         doc['selftitle'] = self.titlefmt_edit.text() if self.chk_selftitle.isChecked() else 0
         doc['volumn'] = self.volfmt_edit.text() if self.chk_selfvol.isChecked() else 0
+        doc['output_dir'] = self.outdir_edit.text().strip()
 
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             yaml.dump(doc, f)
@@ -370,6 +396,8 @@ class BasicSettingPage(SettingPanel):
             config.custom_title = self.titlefmt_edit.text()
         if self.chk_selfvol.isChecked():
             config.custom_vol = self.volfmt_edit.text()
+        out = self.outdir_edit.text().strip()
+        config.output_dir = out if out else _BASE_DIR
         return config
 
 
