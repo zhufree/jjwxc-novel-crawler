@@ -2,5 +2,6 @@ lxml
 opencc_python_reimplemented
 requests
 PyYAML
-nicegui
-ttkbootstrap
+pydantic
+PyQt5
+qfluentwidgets
