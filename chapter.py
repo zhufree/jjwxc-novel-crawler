@@ -16,10 +16,13 @@ def parse_chapters(cdic, novel_id, config):
     :param cdic: API返回的章节列表
     :param novel_id: 小说ID
     :param config: DownloadConfig
-    :return: (chapter_data, locked_chapters)
+    :return: (chapter_data, locked_chapters, vip_chapters)
+             locked_chapters: 被作者锁定的章节ID列表（不可阅读）
+             vip_chapters: VIP章节ID列表（需要购买）
     """
     data = ChapterData()
-    loc = []
+    loc = []  # 锁章（被作者锁定，不可阅读）
+    vip = []  # VIP章节（需要购买）
     vcount = 0
 
     for i in cdic:
@@ -50,10 +53,13 @@ def parse_chapters(cdic, novel_id, config):
                 chapter_intro = re.sub(r'</?\w+[^>]*>', '', chapter_intro)
             data.summary_list.append(chapter_intro.strip())
             if i["islock"] != "0":
-                loc.append(i["chapterid"])
+                loc.append(str(i["chapterid"]))
+            # isvip 字段：0=免费, 非0(如2)=VIP章节
+            if i.get("isvip") and i.get("isvip") != 0 and i.get("isvip") != "0":
+                vip.append(str(i["chapterid"]))
 
     data.fill_num = len(str(len(data.href_list)))
-    return data, loc
+    return data, loc, vip
 
 
 def build_index(chapter_data, loc, config):

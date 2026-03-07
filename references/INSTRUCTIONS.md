@@ -13,7 +13,7 @@
 ## 工具调用流程
 
 ```
-1. get_novel_info(url)       → 确认书名/作者/章节数/locked_chapters
+1. get_novel_info(url)       → 确认书名/作者/章节数/locked_chapters/vip_chapters
 2. list_chapters(url)        → 仅在以下情况调用：
                                - 用户想预览章节标题或提要
                                - 用户想确认某章的付费状态
@@ -21,6 +21,11 @@
                                大多数下载任务可跳过此步骤。
 3. download_novel(url, ...)  → 执行下载，返回 output_file / downloaded / failed / action_needed
 ```
+
+## 章节状态说明
+
+- **locked_chapters**：被作者锁定的章节（不可阅读），通常是作者主动隐藏的内容
+- **vip_chapters**：VIP 章节（需要购买），需要用户在晋江账号中购买后才能下载，其值为整数 0 或 2
 
 ## action_needed 处理规则
 
@@ -42,6 +47,51 @@
    ```
 3. 环境变量：`os.environ.get("JJWXC_TOKEN", "")`
 4. 均无：用空字符串，告知用户免费章节可用，收费章节需 token
+
+## 章节标题自定义格式
+
+用户可以通过 `custom_title` 和 `custom_vol` 参数自定义章节标题和卷标格式。
+
+### custom_title（章节标题格式）
+
+使用占位符自定义章节标题显示格式：
+- `$1`：章节 ID（chapterId，如 1, 2, 3...）
+- `$2`：章节标题文本
+- `$3`：章节内容提要
+
+**示例**：
+```python
+custom_title="第$1章"           # → "第1章"
+custom_title="第$1章 $2"        # → "第1章 入学测试"
+custom_title="[$1] $2 - $3"    # → "[1] 入学测试 - 主角进入学院"
+```
+
+留空则使用默认格式（根据 `show_number`、`show_title`、`show_summary` 组合）。
+
+### custom_vol（卷标格式）
+
+使用占位符自定义卷标显示格式：
+- `$1`：卷号（1, 2, 3...）
+- `$2`：卷名
+
+**示例**：
+```python
+custom_vol="第$1卷 $2"         # → "第1卷 学院篇"
+custom_vol="=== $2 ==="        # → "=== 学院篇 ==="
+```
+
+留空则使用默认格式 `§ 卷名 §`。
+
+### 在 download_novel 中使用
+
+```python
+download_novel(DownloadInput(
+    url="https://www.jjwxc.net/onebook.php?novelid=xxx",
+    custom_title="第$1章 $2",
+    custom_vol="第$1卷 $2",
+    ...
+))
+```
 
 如需告知用户如何获取 token，加载 `references/TOKEN.md`。
 如需参数速查或错误处理，加载 `references/QUICKREF.md`。

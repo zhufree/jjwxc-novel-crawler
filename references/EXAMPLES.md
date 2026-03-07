@@ -6,8 +6,13 @@
 { "name": "get_novel_info", "arguments": { "url": "https://www.jjwxc.net/onebook.php?novelid=9091462" } }
 ```
 
-返回 `title / author / total_chapters / locked_chapters / intro` 等。
-如果 `locked_chapters` 不为空，说明有付费章节，下载前需要 token。
+返回 `title / author / total_chapters / locked_chapters / vip_chapters / intro` 等。
+
+**章节状态说明**：
+- `locked_chapters`：被作者锁定的章节（不可阅读），通常是作者主动隐藏的内容
+- `vip_chapters`：VIP 章节（需要购买），需要用户在晋江账号中购买后才能下载
+
+如果 `vip_chapters` 不为空，说明有付费章节，下载前需要 token。
 
 ---
 

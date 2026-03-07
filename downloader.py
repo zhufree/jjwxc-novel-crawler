@@ -105,8 +105,9 @@ class NovelDownloader:
         self._log(f"网址：{url}\n小说信息：{ti}")
 
         # 解析章节列表
-        self.chapter_data, loc = chapter.parse_chapters(cdic, nid, self.config)
+        self.chapter_data, loc, vip = chapter.parse_chapters(cdic, nid, self.config)
         info.locked_chapters = loc
+        info.vip_chapters = vip
         total_chapters = len(self.chapter_data.href_list)
         info.chapter_count = total_chapters
 

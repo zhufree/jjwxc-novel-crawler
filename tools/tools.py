@@ -177,7 +177,8 @@ def get_novel_info(inp: NovelUrl) -> dict:
         - costar (str): Supporting character name(s).
         - intro_short (str): Short synopsis.
         - intro (str): Full synopsis as plain text.
-        - locked_chapters (List[str]): Chapter IDs that are behind a paywall.
+        - locked_chapters (List[str]): Chapter IDs locked by author (unreadable).
+        - vip_chapters (List[str]): Chapter IDs that require purchase (VIP).
 
     Raises:
         ValueError: If the URL does not contain a valid novelid parameter.
@@ -205,7 +206,7 @@ def get_novel_info(inp: NovelUrl) -> dict:
                 "error": apicont.get("message", "Failed to fetch novel info")}
 
     config = DownloadConfig()
-    chapter_data, locked = chapter_mod.parse_chapters(cdic, novel_id, config)
+    chapter_data, locked, vip = chapter_mod.parse_chapters(cdic, novel_id, config)
 
     raw_intro = apicont.get("novelIntro", "")
     intro_text = re.sub(r"&lt;br/?&gt;", "\n", raw_intro)
@@ -229,6 +230,7 @@ def get_novel_info(inp: NovelUrl) -> dict:
         "intro_short": apicont.get("novelIntroShort", ""),
         "intro": intro_text,
         "locked_chapters": locked,
+        "vip_chapters": vip,
     }
 
 
@@ -248,7 +250,8 @@ def list_chapters(inp: ListChaptersInput) -> dict:
             - index (int): 1-based sequential index.
             - title (str): Chapter title.
             - summary (str): Chapter summary / teaser.
-            - locked (bool): True if the chapter requires purchase.
+            - locked (bool): True if locked by author (unreadable).
+            - is_vip (bool): True if the chapter requires purchase (VIP).
             - url (str): Internal API URL for the chapter content.
         - volumes (List[dict]): One entry per volume marker:
             - name (str): Volume title.
@@ -260,7 +263,7 @@ def list_chapters(inp: ListChaptersInput) -> dict:
     Examples:
         >>> result = list_chapters(ListChaptersInput(url="https://www.jjwxc.net/onebook.php?novelid=9091462"))
         >>> result["chapters"][0]
-        {'index': 1, 'title': '...', 'summary': '...', 'locked': False, 'url': '...'}
+        {'index': 1, 'title': '...', 'summary': '...', 'locked': False, 'is_vip': True, 'url': '...'}
     """
     m = re.search(r'novelid=(\d+)', inp.url)
     if not m:
@@ -280,7 +283,7 @@ def list_chapters(inp: ListChaptersInput) -> dict:
 
     config = DownloadConfig()
     config.state = inp.state
-    chapter_data, locked_ids = chapter_mod.parse_chapters(cdic, novel_id, config)
+    chapter_data, locked_ids, vip_ids = chapter_mod.parse_chapters(cdic, novel_id, config)
 
     chapters = []
     for idx, (ch_url, title, summary) in enumerate(zip(
@@ -295,6 +298,7 @@ def list_chapters(inp: ListChaptersInput) -> dict:
             "title": title,
             "summary": summary,
             "locked": chap_id in locked_ids,
+            "is_vip": chap_id in vip_ids,
             "url": ch_url,
         })
 
@@ -580,6 +584,7 @@ def _empty_info() -> dict:
         "novel_style": "", "novel_tags": "", "novel_size": "",
         "protagonist": "", "costar": "", "intro_short": "", "intro": "",
         "locked_chapters": [],
+        "vip_chapters": [],
     }
 
 

@@ -40,7 +40,8 @@ class NovelInfo:
         self.author_id = ''
         self.cover_url = ''
         self.chapter_count = 0
-        self.locked_chapters = []
+        self.locked_chapters = []  # 锁章（被作者锁定，不可阅读）
+        self.vip_chapters = []  # VIP章节（需要购买）
         self.apicont = {}  # 原始API返回数据
         self.ress = None  # 网页解析结果
 
