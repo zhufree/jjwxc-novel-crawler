@@ -1,8 +1,5 @@
 # 晋江小说下载器
-
-[![GitHub release](https://img.shields.io/github/release/7325156/jjwxcNovelCrawler.svg)](https://github.com/7325156/jjwxcNovelCrawler/releases/latest/)
-
-一款用于下载晋江文学城小说的工具，支持 TXT 和 EPUB 格式输出，fork自 [jjwxcNovelCrawler](https://github.com/7325156/jjwxcNovelCrawler)，添加了自己需要的章节下载功能及重写了GUI。
+一款用于下载晋江文学城小说的工具，支持 TXT 和 EPUB 格式输出，fork自 [jjwxcNovelCrawler](https://github.com/zhufree/jjwxcNovelCrawler)，添加了自己需要的章节下载功能及重写了GUI，并添加了适用于AI Agent的Skill说明文档。
 
 > ⚠️ **声明**：此项目仅供学习交流使用，严禁用于商业用途，请在24小时之内删除。
 
@@ -20,7 +17,7 @@
 - **多线程下载**：支持设置线程数，加快下载速度
 - **章节列表查看**：可预览小说所有章节，查看 VIP 章节和锁章状态
 - **桌面 GUI**：基于 QFluentWidgets 的现代风格界面，模块化设计
-- **AI Skill 接口**：可直接作为 OpenClaw / AutoGen / LangChain 等 AI Agent 的工具使用
+- **AI Skill 接口**：可直接作为 OpenClaw 等 AI Agent 的工具使用
 
 ---
 
@@ -159,6 +156,14 @@ jjwxcNovelCrawler/
 - 检查网址格式是否正确
 - 确认已购买 VIP 章节
 - 在"章节列表"页面查看哪些章节是 VIP（💎）或锁章（🔒）
+
+**Q: 出现 `231101` 或 `2016` 错误，提示"浏览器标识异常"或"请更新至最新版本"？**
+- **原因**：系统时间不准确，与真实时间相差过大
+- **解决**：同步系统时间到正确时区
+  - Docker/容器：`ntpdate pool.ntp.org` 或 `timedatectl set-ntp true`
+  - Linux 服务器：`timedatectl set-timezone Asia/Shanghai && ntpdate ntp.aliyun.com`
+  - 验证时间：`python -c "import time; print(time.asctime())"`
+- **说明**：晋江 API 使用时间戳验证请求，时间不准确会被拒绝
 
 **Q: 如何查看小说有哪些 VIP 章节？**
 - 切换到"章节列表"页面
