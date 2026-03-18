@@ -3,6 +3,7 @@
 基本设置页面
 """
 import os
+import sys
 import yaml
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QFileDialog
 from qfluentwidgets import (
@@ -12,7 +13,13 @@ from qfluentwidgets import (
 from .base import SettingPanel, _make_card
 from models import DownloadConfig
 
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _get_base_dir():
+    if getattr(sys, 'frozen', False) and hasattr(sys, 'executable'):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+_BASE_DIR = _get_base_dir()
 CONFIG_FILE = os.path.join(_BASE_DIR, 'config.yml')
 
 STATE_MAP = {'不转换': '', '繁→简': 's', '简→繁': 't'}

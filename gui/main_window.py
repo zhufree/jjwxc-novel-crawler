@@ -4,6 +4,7 @@
 """
 import os
 import re
+import sys
 import yaml
 from PyQt5.QtCore import Qt, QThread
 from qfluentwidgets import FluentWindow, FluentIcon as FIF, InfoBar, InfoBarPosition
@@ -13,7 +14,13 @@ from .chapter_list_page import ChapterListPage
 from .download_page import DownloadPage
 from .worker import DownloadWorker
 
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _get_base_dir():
+    if getattr(sys, 'frozen', False) and hasattr(sys, 'executable'):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+_BASE_DIR = _get_base_dir()
 CONFIG_FILE = os.path.join(_BASE_DIR, 'config.yml')
 
 
