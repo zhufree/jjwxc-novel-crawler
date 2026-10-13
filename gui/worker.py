@@ -2,8 +2,25 @@
 """
 下载线程模块
 """
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
+import api
 from downloader import NovelDownloader
+
+
+class ChapterListWorker(QThread):
+    """在后台查询章节列表，界面通过信号接收结果。"""
+    result_signal = pyqtSignal(object, str)
+
+    def __init__(self, novel_id, parent=None):
+        super().__init__(parent)
+        self.novel_id = novel_id
+
+    def run(self):
+        try:
+            result = api.fetch_novel_info(self.novel_id)
+            self.result_signal.emit(result, '')
+        except Exception as exc:
+            self.result_signal.emit(None, str(exc))
 
 
 class DownloadWorker(QObject):

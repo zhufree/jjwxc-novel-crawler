@@ -10,7 +10,7 @@ from qfluentwidgets import (
     FluentIcon as FIF
 )
 from .base import SettingPanel, _make_card
-import api
+from .worker import ChapterListWorker
 import chapter as chapter_mod
 from models import DownloadConfig
 
@@ -23,6 +23,7 @@ class ChapterListPage(SettingPanel):
         self.chapter_data = None
         self.locked_ids = []
         self.vip_ids = []
+        self._query_thread = None
 
     def _init_ui(self):
         # ---- URL 输入 ----
@@ -74,6 +75,8 @@ class ChapterListPage(SettingPanel):
 
     def _parse_chapters(self):
         """解析章节列表"""
+        if not self.parse_btn.isEnabled():
+            return
         url = self.url_edit.text().strip()
         if not url:
             InfoBar.warning(
@@ -103,10 +106,20 @@ class ChapterListPage(SettingPanel):
         novel_id = m.group(1)
         self.parse_btn.setEnabled(False)
         self.info_label.setText('正在解析章节列表...')
-        
+
+        self._query_thread = ChapterListWorker(novel_id, self)
+        self._query_thread.result_signal.connect(self._on_chapters_loaded)
+        self._query_thread.finished.connect(lambda: self.parse_btn.setEnabled(True))
+        self._query_thread.finished.connect(self._query_thread.deleteLater)
+        self._query_thread.start()
+
+    def _on_chapters_loaded(self, result, error):
         try:
+            if error:
+                raise RuntimeError(error)
             # 获取小说信息和章节列表
-            apicont, cdic, _ = api.fetch_novel_info(novel_id)
+            apicont, cdic, _ = result
+            novel_id = self._query_thread.novel_id
             
             if "message" in apicont and "novelIntro" not in apicont:
                 InfoBar.error(
@@ -163,8 +176,6 @@ class ChapterListPage(SettingPanel):
                 parent=self.window()
             )
             self.info_label.setText(f'解析失败: {str(e)}')
-        finally:
-            self.parse_btn.setEnabled(True)
 
     def _fill_table(self):
         """填充章节列表表格"""
@@ -172,6 +183,8 @@ class ChapterListPage(SettingPanel):
             return
         
         self.table.setRowCount(len(self.chapter_data.href_list))
+        vip_ids = set(self.vip_ids)
+        locked_ids = set(self.locked_ids)
         
         for idx, (url, title, summary) in enumerate(zip(
             self.chapter_data.href_list,
@@ -192,13 +205,13 @@ class ChapterListPage(SettingPanel):
             self.table.setItem(idx, 2, QTableWidgetItem(summary))
             
             # VIP（vip_ids 和 chap_id 都是字符串）
-            is_vip = chap_id in self.vip_ids
+            is_vip = chap_id in vip_ids
             vip_item = QTableWidgetItem('💎' if is_vip else '')
             vip_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(idx, 3, vip_item)
             
             # 锁章（locked_ids 和 chap_id 都是字符串）
-            is_locked = chap_id in self.locked_ids
+            is_locked = chap_id in locked_ids
             locked_item = QTableWidgetItem('🔒' if is_locked else '')
             locked_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(idx, 4, locked_item)

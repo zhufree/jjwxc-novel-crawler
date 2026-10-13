@@ -89,7 +89,7 @@ class BasicSettingPage(SettingPanel):
         fmt_right.addWidget(BodyLabel('下载线程数'))
         self.thread_spin = SpinBox()
         self.thread_spin.setRange(1, 999)
-        self.thread_spin.setValue(100)
+        self.thread_spin.setValue(8)
         self.thread_spin.setFixedWidth(110)
         fmt_right.addWidget(self.thread_spin)
 
@@ -229,7 +229,7 @@ class BasicSettingPage(SettingPanel):
             conf = yaml.load(f.read(), Loader=yaml.FullLoader) or {}
 
         self.token_edit.setText(conf.get('token', ''))
-        self.thread_spin.setValue(conf.get('ThreadPoolMaxNum', 100))
+        self.thread_spin.setValue(conf.get('ThreadPoolMaxNum', 8))
 
         fmt = conf.get('format', 'txt')
         idx = self.fmt_combo.findText(fmt)
@@ -315,4 +315,5 @@ class BasicSettingPage(SettingPanel):
             config.custom_vol = self.volfmt_edit.text()
         out = self.outdir_edit.text().strip()
         config.output_dir = out if out else _BASE_DIR
+        config.validate()
         return config
