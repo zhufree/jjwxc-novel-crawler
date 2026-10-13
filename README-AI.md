@@ -4,6 +4,11 @@
 
 ## 快速集成
 
+也可通过 CLI 调用：`python cli.py info "<小说网址>" --json`、
+`python cli.py chapters "<小说网址>" --json`、`python cli.py download "<小说网址>" --json`。
+JSON 结果输出到 stdout，进度和日志输出到 stderr；部分失败的退出码为 `1`。
+完整参数见 `python cli.py download --help` 和 [README.md](README.md)。
+
 ```python
 from tools import get_tools, call_tool
 
@@ -97,6 +102,9 @@ token = os.environ.get("JJWXC_TOKEN", "")
 
 ## 关键参数说明
 
+参数在调用前统一校验：线程数必须为正整数，章节范围不能为负数，非零结束章不能小于起始章。
+格式与繁简转换参数采用枚举；通过 `call_tool` 传入非法参数会抛出 Pydantic `ValidationError`，不会发起网络请求。
+
 ### format_type
 - `"txt"` — 纯文本，默认合并为单个 `.txt` 文件
 - `"epub2"` — EPUB 2，兼容性最广
@@ -110,6 +118,8 @@ token = os.environ.get("JJWXC_TOKEN", "")
 
 ### state（繁简转换）
 `""` 不转换 | `"s"` 繁→简 | `"t"` 简→繁
+
+`list_chapters` 也会转换返回的章节标题、提要和卷名。
 
 ### custom_title / custom_vol（标题模板）
 - `custom_title`：`$1`=章节ID，`$2`=标题，`$3`=提要，例如 `"$2"`

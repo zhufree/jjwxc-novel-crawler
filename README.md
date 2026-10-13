@@ -18,6 +18,7 @@
 - **章节列表查看**：可预览小说所有章节，查看 VIP 章节和锁章状态
 - **桌面 GUI**：基于 QFluentWidgets 的现代风格界面，模块化设计
 - **AI Skill 接口**：可直接作为 OpenClaw 等 AI Agent 的工具使用
+- **命令行 CLI**：查询信息、章节和下载，支持 JSON 输出与退出码
 
 ---
 
@@ -48,6 +49,33 @@
 ---
 
 ## 🚀 使用方法
+
+### 命令行（无需启动 GUI）
+
+在项目根目录运行，也可将 `python cli.py` 替换为 `python -m cli`：
+
+```powershell
+python cli.py --help
+python cli.py info "https://www.jjwxc.net/onebook.php?novelid=9091462"
+python cli.py chapters "https://www.jjwxc.net/onebook.php?novelid=9091462" --state s --json
+python cli.py download "https://www.jjwxc.net/onebook.php?novelid=9091462" --format epub3 --start 1 --end 50 -o ./downloads
+python cli.py download "https://www.jjwxc.net/onebook.php?novelid=9091462" --save-per-chapter --remove-blank-lines --no-summary -o ./downloads
+python cli.py download --help
+```
+
+Token 沿用现有读取顺序：`--token` → 项目根目录 `config.yml` 的 `token` → `JJWXC_TOKEN` 环境变量。
+其他下载选项由命令行参数和默认值决定，不自动继承 GUI 配置。未指定 `-o` 时使用系统临时目录下的 `jjwxc_downloads`。
+
+支持 `--threads`、`--state`、`--custom-title`、`--custom-vol`、`--css-text` / `--css-file`，
+以及 `--number`、`--title`、`--summary`、`--chapter-info`、`--cover`、`--remove-thanks`、`--html-vol`、`--web-intro` 等开关。
+布尔开关均可用对应的 `--no-*` 关闭；默认显示序号、标题、提要并下载 EPUB 封面。
+PowerShell 中包含 `$1` 等占位符的模板请使用单引号，例如 `--custom-title '第$1章 $2'`。
+`--validate-only` 只检查小说公开信息，不验证 Token 或付费章节权限。
+
+`--json` 可放在子命令前或后；stdout 只输出 JSON 结果，日志和进度写入 stderr。
+退出码：`0` 全部成功，`1` 运行失败或部分章节失败，`2` 参数错误，`130` 用户中断。
+参数解析错误写入 stderr；模型校验错误在 `--json` 模式下输出 JSON。
+部分下载的可用内容保留在返回的 `output_file`，合并文件带 `.partial` 后缀。
 
 ### 1. 获取 Token
 
@@ -102,9 +130,16 @@ Token 是登录晋江 App 后的身份凭证，用于下载收费章节。**免�
 
 ## 📁 项目结构
 
+下载时每个任务使用独立目录，按章保存的文件名会包含章节 ID，避免同名覆盖。
+部分章节失败时返回失败状态并保留可用内容，合并文件带 `.partial` 后缀；全部失败时不会覆盖已有成品。
+默认下载线程数为 8。`validate_only` 仅检查小说公开信息，不验证 Token。
+
+离线回归检查：`python -m unittest test_download`（不会访问晋江接口）。
+
 ```
 jjwxcNovelCrawler/
 ├── main.py              # 桌面版 GUI 启动入口（QFluentWidgets）
+├── cli.py               # 命令行入口（info / chapters / download）
 ├── downloader.py        # 下载器核心逻辑
 ├── models.py            # 数据模型
 ├── chapter.py           # 章节内容处理
