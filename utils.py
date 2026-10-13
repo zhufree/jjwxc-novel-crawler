@@ -5,7 +5,14 @@
 """
 import re
 import html
+from functools import lru_cache
 from opencc import OpenCC
+
+
+@lru_cache(maxsize=2)
+def _get_converter(conversion):
+    """复用已加载的转换字典；创建后不再修改转换模式。"""
+    return OpenCC(conversion)
 
 
 def convert_text(text, state):
@@ -16,9 +23,9 @@ def convert_text(text, state):
     :return: 转换后的文本
     """
     if state == 's':
-        return OpenCC('t2s').convert(text)
+        return _get_converter('t2s').convert(text)
     elif state == 't':
-        return OpenCC('s2t').convert(text)
+        return _get_converter('s2t').convert(text)
     return text
 
 

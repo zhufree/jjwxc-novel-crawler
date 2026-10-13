@@ -4,10 +4,13 @@ import sys
 import re
 import os
 import zipfile
-import shutil
+import html as html_utils
+import uuid
+from datetime import datetime, timezone
 
 
 class epubfile():
+    version = '2.0'
     # 创建epub文件格式信息
     author = ''
     title = ''
@@ -32,7 +35,7 @@ class epubfile():
         sigr = 0
         nav_info += '''<li><a href="info.xhtml">''' + self.title + '-' + self.author + '''</a>
     <ol>'''
-        for html in os.listdir(path):
+        for html in sorted(os.listdir(path)):
             basename = os.path.basename(html)
             if basename.endswith('html'):
                 if basename != 'C.xhtml' and basename != 'info.xhtml':
@@ -63,36 +66,44 @@ class epubfile():
         epub.writestr('META-INF/container.xml', container_info, compress_type=zipfile.ZIP_STORED)
 
     def create_content(self, epub, path):
-        content_info = '''<?xml version="1.0" encoding="utf-8"?>
-<package version="2.0" unique-identifier="uuid_id" xmlns="http://www.idpf.org/2007/opf">
-<metadata xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/">
-<dc:title>''' + self.title + '''</dc:title>
-<dc:creator>''' + self.author + '''</dc:creator>
-<meta name="cover" content="p.jpg" />
-</metadata><manifest>
-%(manifest)s <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-<item id="content" href="content.html" media-type="application/xhtml+xml"/>
-<item id="css" href="sgc-nav.css" media-type="text/css"/>
-</manifest><spine toc="ncx"> %(spine)s <itemref idref="cover" linear="no"/>
-<itemref idref="content"/></spine></package>'''
-        manifest = ''
-        spine = ''
-        for html in os.listdir(path):
-            basename = os.path.basename(html)
-            if basename.endswith('html'):
-                manifest += '<item id="%s" href="%s" media-type="application/xhtml+xml"/>' % (basename, basename)
-            if basename.endswith('jpg'):
-                manifest += '<item id="%s" href="%s" media-type="image/jpeg"/>' % (basename, basename)
-            if basename.endswith('html') | basename.endswith('jpg'):
-                spine += '<itemref idref="%s"/>' % (basename)
-        spine += '''<guide>
-    <reference type="cover" title="封面" href="C.xhtml"/>
-  </guide>'''
-        if self.htmlvol:
-            manifest += '<item id="nav.xhtml" href="nav.xhtml" media-type="application/xhtml+xml"/>'
-            spine += '<itemref idref="nav.xhtml"/>'
-        epub.writestr('OEBPS/content.opf', content_info % {'manifest': manifest, 'spine': spine, },
-                      compress_type=zipfile.ZIP_STORED)
+        opf_ns = 'http://www.idpf.org/2007/opf'
+        dc_ns = 'http://purl.org/dc/elements/1.1/'
+        package = etree.Element('{' + opf_ns + '}package', nsmap={None: opf_ns},
+                                version=self.version, **{'unique-identifier': 'BookId'})
+        metadata = etree.SubElement(package, 'metadata', nsmap={'dc': dc_ns})
+        etree.SubElement(metadata, '{' + dc_ns + '}identifier', id='BookId').text = 'urn:uuid:' + str(uuid.uuid4())
+        etree.SubElement(metadata, '{' + dc_ns + '}title').text = html_utils.unescape(self.title)
+        etree.SubElement(metadata, '{' + dc_ns + '}creator').text = html_utils.unescape(self.author)
+        etree.SubElement(metadata, '{' + dc_ns + '}language').text = 'zh'
+        if self.version == '3.0':
+            etree.SubElement(metadata, 'meta', property='dcterms:modified').text = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        manifest = etree.SubElement(package, 'manifest')
+        etree.SubElement(manifest, 'item', id='ncx', href='toc.ncx', **{'media-type': 'application/x-dtbncx+xml'})
+        etree.SubElement(manifest, 'item', id='css', href='sgc-nav.css', **{'media-type': 'text/css'})
+        spine = etree.SubElement(package, 'spine', toc='ncx')
+        files = sorted(os.listdir(path))
+        if self.version == '3.0' or self.htmlvol:
+            attrs = {'properties': 'nav'} if self.version == '3.0' else {}
+            etree.SubElement(manifest, 'item', id='nav.xhtml', href='nav.xhtml',
+                             **{'media-type': 'application/xhtml+xml', **attrs})
+        for filename in files:
+            if filename.endswith('.xhtml'):
+                etree.SubElement(manifest, 'item', id=filename, href=filename,
+                                 **{'media-type': 'application/xhtml+xml'})
+                etree.SubElement(spine, 'itemref', idref=filename)
+            elif filename.endswith('.jpg'):
+                attrs = {'properties': 'cover-image'} if self.version == '3.0' and filename == 'zp.jpg' else {}
+                etree.SubElement(manifest, 'item', id=filename, href=filename,
+                                 **{'media-type': 'image/jpeg', **attrs})
+        if self.version == '3.0' or self.htmlvol:
+            spine.insert(2 if 'C.xhtml' in files else 1, etree.Element('itemref', idref='nav.xhtml'))
+        if 'zp.jpg' in files:
+            etree.SubElement(metadata, 'meta', name='cover', content='zp.jpg')
+        if self.version == '2.0' and 'C.xhtml' in files:
+            guide = etree.SubElement(package, 'guide')
+            etree.SubElement(guide, 'reference', type='cover', title='Cover', href='C.xhtml')
+        epub.writestr('OEBPS/content.opf', etree.tostring(package, encoding='utf-8', xml_declaration=True),
+                      compress_type=zipfile.ZIP_DEFLATED)
 
     def create_info(self, epub, path, index, rollSign):
         tox_info = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -106,10 +117,10 @@ class epubfile():
 </head><docTitle><text>''' + self.title + '''</text></docTitle><navMap>'''
         sig = 0
         sigr = 0
-        count = 0
+        count = 1
         tox_info += '''<navPoint id="0" playOrder="0">
             <navLabel><text>''' + self.title + '-' + self.author + '''</text></navLabel><content src="info.xhtml"/>'''
-        for html in os.listdir(path):
+        for html in sorted(os.listdir(path)):
             basename = os.path.basename(html)
             if basename.endswith('html'):
                 if basename != 'C.xhtml' and basename != 'info.xhtml':
@@ -137,23 +148,19 @@ class epubfile():
         epub.writestr('OEBPS/sgc-nav.css', css_info, compress_type=zipfile.ZIP_STORED)
 
     def createEpub(self, epub, xaut, xtitle, ti, index, rollSign, path):
-        self.author = xaut
-        self.title = xtitle
+        self.author = html_utils.escape(xaut)
+        self.title = html_utils.escape(xtitle)
         self.create_mimetype(epub)
         self.create_container(epub)
-        os.chdir(ti)
-        ppp = os.getcwd()
+        ppp = os.path.abspath(os.path.join(path, ti))
         if self.htmlvol:
             self.create_vol(epub, ppp, index, rollSign)
         self.create_content(epub, ppp)
         self.create_info(epub, ppp, index, rollSign)
         self.create_stylesheet(epub)
-        for html in os.listdir('.'):
+        for html in sorted(os.listdir(ppp)):
             basename = os.path.basename(html)
             if basename.endswith('jpg'):
-                epub.write(html, "OEBPS/" + basename, compress_type=zipfile.ZIP_DEFLATED)
+                epub.write(os.path.join(ppp, basename), "OEBPS/" + basename, compress_type=zipfile.ZIP_DEFLATED)
             if basename.endswith('html'):
-                epub.write(html, "OEBPS/" + basename, compress_type=zipfile.ZIP_DEFLATED)
-        epub.close()
-        os.chdir(path)
-        shutil.rmtree(ppp)
+                epub.write(os.path.join(ppp, basename), "OEBPS/" + basename, compress_type=zipfile.ZIP_DEFLATED)

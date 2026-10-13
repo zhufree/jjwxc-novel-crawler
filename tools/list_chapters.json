@@ -8,6 +8,11 @@
     "state": {
       "default": "",
       "description": "Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
+      "enum": [
+        "",
+        "s",
+        "t"
+      ],
       "title": "State",
       "type": "string"
     }

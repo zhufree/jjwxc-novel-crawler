@@ -14,7 +14,7 @@ import tempfile
 from typing import Any, List
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # allow importing sibling modules whether running from project root or tools/
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,8 @@ if _ROOT not in sys.path:
 import api
 import chapter as chapter_mod
 from downloader import NovelDownloader
-from models import DownloadConfig
+from models import DownloadConfig, OutputFormat, ConversionState
+import utils
 
 
 # ─────────────────────────────────────────────
@@ -43,7 +44,7 @@ class ListChaptersInput(BaseModel):
         ...,
         description="Novel page URL containing novelid parameter.",
     )
-    state: str = Field(
+    state: ConversionState = Field(
         "",
         description="Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
     )
@@ -58,7 +59,7 @@ class DownloadInput(BaseModel):
         "",
         description="Jjwxc App user token. Required for paid (locked) chapters.",
     )
-    format_type: str = Field(
+    format_type: OutputFormat = Field(
         "txt",
         description="Output format: 'txt', 'epub2', or 'epub3'.",
     )
@@ -70,20 +71,23 @@ class DownloadInput(BaseModel):
             "In production, always set this explicitly."
         ),
     )
-    state: str = Field(
+    state: ConversionState = Field(
         "",
         description="Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
     )
     thread_num: int = Field(
-        100,
-        description="Number of concurrent download threads. Recommended: 50–200.",
+        8,
+        ge=1,
+        description="Number of concurrent download threads. Recommended: 4–16.",
     )
     chapter_start: int = Field(
         0,
+        ge=0,
         description="First chapter to download (1-indexed). 0 means start from chapter 1.",
     )
     chapter_end: int = Field(
         0,
+        ge=0,
         description="Last chapter to download (inclusive). 0 means download to the last chapter.",
     )
     save_per_chapter: bool = Field(
@@ -141,11 +145,23 @@ class DownloadInput(BaseModel):
     validate_only: bool = Field(
         False,
         description=(
-            "If True, verify that the URL is reachable and the token is valid "
-            "(by fetching novel info) without performing the actual download. "
+            "If True, verify public novel information without downloading chapters. "
+            "This does not validate the token or access to paid chapters. "
             "Returns success=True and output_file='' if validation passes."
         ),
     )
+
+    def to_config(self):
+        config = DownloadConfig()
+        for name, value in self.model_dump().items():
+            if hasattr(config, name):
+                setattr(config, name, value)
+        return config
+
+    @model_validator(mode='after')
+    def validate_options(self):
+        self.to_config().validate()
+        return self
 
 
 # ─────────────────────────────────────────────
@@ -284,6 +300,8 @@ def list_chapters(inp: ListChaptersInput) -> dict:
     config = DownloadConfig()
     config.state = inp.state
     chapter_data, locked_ids, vip_ids = chapter_mod.parse_chapters(cdic, novel_id, config)
+    locked_ids = set(locked_ids)
+    vip_ids = set(vip_ids)
 
     chapters = []
     for idx, (ch_url, title, summary) in enumerate(zip(
@@ -295,15 +313,15 @@ def list_chapters(inp: ListChaptersInput) -> dict:
         chap_id = cm.group(1) if cm else ""
         chapters.append({
             "index": idx + 1,
-            "title": title,
-            "summary": summary,
+            "title": utils.convert_text(utils.unescape_html(title), inp.state),
+            "summary": utils.convert_text(utils.unescape_html(summary), inp.state),
             "locked": chap_id in locked_ids,
             "is_vip": chap_id in vip_ids,
             "url": ch_url,
         })
 
     volumes = [
-        {"name": name, "place_id": place}
+        {"name": utils.convert_text(utils.unescape_html(name), inp.state), "place_id": place}
         for name, place in zip(chapter_data.roll_sign, chapter_data.roll_sign_place)
     ]
 
@@ -316,7 +334,7 @@ def list_chapters(inp: ListChaptersInput) -> dict:
     }
 
 
-def download_novel(inp: DownloadInput) -> dict:
+def download_novel(inp: DownloadInput, *, progress_callback=None, log_callback=None) -> dict:
     """Download a Jjwxc novel to TXT or EPUB format.
 
     Free chapters can be downloaded without a token. Paid (locked) chapters
@@ -328,7 +346,7 @@ def download_novel(inp: DownloadInput) -> dict:
     Returns:
         A dict with the following keys:
 
-        - success (bool): Whether the download completed without fatal errors.
+        - success (bool): Whether all requested chapters downloaded successfully.
         - error (str): Error message on failure, empty string on success.
         - output_file (str): Path to the generated file (TXT merge mode) or
           directory (per-chapter / EPUB mode).
@@ -386,11 +404,6 @@ def download_novel(inp: DownloadInput) -> dict:
                 "error": "Invalid URL: must contain novelid=<digits>",
                 "action_needed": "check_url"}
 
-    if inp.format_type not in ("txt", "epub2", "epub3"):
-        return {**_empty_download(inp.url), "success": False,
-                "error": f"Unsupported format '{inp.format_type}'. Choose: txt / epub2 / epub3",
-                "action_needed": "check_url"}
-
     if inp.validate_only:
         try:
             apicont, _, _ = api.fetch_novel_info(m.group(1))
@@ -417,16 +430,11 @@ def download_novel(inp: DownloadInput) -> dict:
     if not token:
         token = os.environ.get("JJWXC_TOKEN", "")
 
-    config = DownloadConfig()
-    _skip = {"url", "output_dir", "validate_only"}
-    for field in DownloadInput.model_fields:
-        if field not in _skip and hasattr(config, field):
-            setattr(config, field, getattr(inp, field))
+    config = inp.to_config()
     config.token = token
     config.output_dir = inp.output_dir or os.path.join(tempfile.gettempdir(), "jjwxc_downloads")
-    config.validate_only = inp.validate_only
 
-    downloader = NovelDownloader(config=config)
+    downloader = NovelDownloader(config=config, progress_callback=progress_callback, log_callback=log_callback)
 
     try:
         success, output_file, error = downloader.download_novel(inp.url)
@@ -440,7 +448,9 @@ def download_novel(inp: DownloadInput) -> dict:
 
     action_needed = None
     if failed:
-        action_needed = "provide_token"
+        failed_ids = {str(int(chap_id)) for chap_id in failed}
+        needs_token = not token and info and failed_ids.intersection(info.vip_chapters)
+        action_needed = "provide_token" if needs_token else "retry_later"
     elif not success and error:
         action_needed = "retry_later"
 

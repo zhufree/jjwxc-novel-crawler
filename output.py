@@ -41,7 +41,7 @@ def save_chapter_file(chapter_url, title, content, config, output_dir=''):
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
 "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>''' + re.sub('<.*?>', '', title) + '''</title>
+<head><title>''' + html.escape(html.unescape(re.sub('<.*?>', '', title))) + '''</title>
 <meta charset="utf-8"/>
 <link href="sgc-nav.css" rel="stylesheet" type="text/css"/>
 </head><body>''')
@@ -89,7 +89,7 @@ def save_cover(cover_data, output_dir):
 
     try:
         im = Image.open(BytesIO(cover_data))
-        im.save(os.path.join(output_dir, 'zp.jpg'), 'JPEG')
+        im.convert('RGB').save(os.path.join(output_dir, 'zp.jpg'), 'JPEG')
 
         with open(os.path.join(output_dir, "C.xhtml"), 'w', encoding='utf-8') as f:
             f.write('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
@@ -178,13 +178,15 @@ def save_info_page(novel_info, loc, config, output_dir, req_url):
             fo.write(TOC.strip() + '\n')
             fo.write(lockinfo.strip() + '\n')
     else:
-        TOC = f"<h1 class='title' title='{xtitle}-{xaut}'><a href='{req_url}'>{xtitle}</a></h1>"
-        TOC += f"<h2 class='sigil_not_in_toc title'>作者：<a href='{xauthref}'>{xaut}</a></h2>"
+        safe_title = html.escape(xtitle)
+        safe_author = html.escape(xaut)
+        TOC = f"<h1 class='title' title='{safe_title}-{safe_author}'><a href='{html.escape(req_url)}'>{safe_title}</a></h1>"
+        TOC += f"<h2 class='sigil_not_in_toc title'>作者：<a href='{xauthref}'>{safe_author}</a></h2>"
         TOC += "<blockquote>"
         for ix in infox:
             ix = re.sub('\n', '', ix.strip())
             ix = re.sub(' +', '', ix)
-            TOC += "<p>" + ix + "</p>"
+            TOC += "<p>" + html.escape(utils.unescape_html(ix)) + "</p>"
         TOC += "</blockquote>"
         TOC += "<hr/><p><b>文案：</b></p>"
         if config.special_intro and intro:
@@ -220,38 +222,13 @@ def rename_chapter_files(source_dir, chapter_data, config):
     """
     import utils
     import chapter as chapter_mod
-    filenames = sorted(os.listdir(source_dir))
-    for filename in filenames:
-        if not filename.endswith('.txt'):
-            continue
-        # 跳过 info.txt 和卷标文件
-        if filename == 'info.txt' or '_vol' in filename:
-            continue
-        filepath = os.path.join(source_dir, filename)
-        # 从文件名提取章节号，如 z0001.txt -> 1
-        base = filename.replace('.txt', '').lstrip('z').lstrip('0') or '0'
-        try:
-            chap_num = int(base)
-        except ValueError:
-            continue
-        # 在href_list中查找对应章节的标题
-        new_name = filename  # fallback
-        for idx, url in enumerate(chapter_data.href_list):
-            # 从URL中正确提取chapterId参数
-            match = re.search(r'chapterId=(\d+)', url)
-            if match:
-                url_chap_id = match.group(1)
-                if str(url_chap_id) == str(chap_num):
-                    # 使用 build_title 构建标题，支持自定义格式
-                    title = chapter_mod.build_title(url, chapter_data, config)
-                    # 去除 txt 格式的 " #" 后缀
-                    title = title.replace(' #', '').strip()
-                    title = utils.sanitize_filename(title)
-                    new_name = f"{title}.txt"
-                    break
-        new_path = os.path.join(source_dir, new_name)
-        if filepath != new_path:
-            os.replace(filepath, new_path)
+    for idx, url in enumerate(chapter_data.href_list):
+        chap_id = re.search(r'chapterId=(\d+)', url).group(1).zfill(4)
+        filepath = os.path.join(source_dir, f'z{chap_id}.txt')
+        title = chapter_mod.build_title(url, chapter_data, config, idx=idx).replace(' #', '').strip()
+        title = utils.sanitize_filename(utils.unescape_html(title))
+        new_path = os.path.join(source_dir, f'{chap_id} {title}.txt')
+        os.rename(filepath, new_path)
 
 
 def merge_txt_files(source_dir, output_file):
@@ -268,8 +245,8 @@ def merge_txt_files(source_dir, output_file):
             if filename == 'info.txt' or '_vol' in filename:
                 continue
             filepath = os.path.join(source_dir, filename)
-            for line in open(filepath, encoding='utf-8', errors='ignore'):
-                f.writelines(line)
+            with open(filepath, encoding='utf-8') as source:
+                shutil.copyfileobj(source, f)
     shutil.rmtree(source_dir)
 
 
@@ -279,14 +256,12 @@ def create_epub(output_file, author, title, dir_name, index, roll_sign, base_pat
     :param output_file: 输出文件路径
     :param author: 作者
     :param title: 书名
-    :param dir_name: 目录名
+    :param dir_name: 章节目录（绝对路径或相对于 base_path 的目录名）
     :param index: 目录列表
     :param roll_sign: 卷标列表
     :param base_path: 基础路径
     :param config: DownloadConfig
     """
-    epub = zipfile.ZipFile(output_file, 'w')
-
     if config.format_type == 'epub2':
         epubfile = EPUB2.epubfile()
         if config.html_vol:
@@ -295,4 +270,7 @@ def create_epub(output_file, author, title, dir_name, index, roll_sign, base_pat
         epubfile = EPUB3.epubfile()
 
     epubfile.csstext = config.css_text
-    epubfile.createEpub(epub, author, title, dir_name, index, roll_sign, base_path)
+    source_dir = os.path.abspath(os.path.join(base_path, dir_name))
+    with zipfile.ZipFile(output_file, 'w') as epub:
+        epubfile.createEpub(epub, author, title, source_dir, index, roll_sign, base_path)
+    shutil.rmtree(source_dir)

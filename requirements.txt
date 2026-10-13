@@ -2,6 +2,8 @@ lxml
 opencc_python_reimplemented
 requests
 PyYAML
-pydantic
+pydantic>=2
+Pillow
+pyDes
 PyQt5
-qfluentwidgets
+PyQt-Fluent-Widgets

@@ -14,6 +14,11 @@
     "format_type": {
       "default": "txt",
       "description": "Output format: 'txt', 'epub2', or 'epub3'.",
+      "enum": [
+        "txt",
+        "epub2",
+        "epub3"
+      ],
       "title": "Format Type",
       "type": "string"
     },
@@ -26,24 +31,32 @@
     "state": {
       "default": "",
       "description": "Chinese character conversion: '' = none, 's' = traditional→simplified, 't' = simplified→traditional.",
+      "enum": [
+        "",
+        "s",
+        "t"
+      ],
       "title": "State",
       "type": "string"
     },
     "thread_num": {
-      "default": 100,
-      "description": "Number of concurrent download threads. Recommended: 50–200.",
+      "default": 8,
+      "description": "Number of concurrent download threads. Recommended: 4–16.",
+      "minimum": 1,
       "title": "Thread Num",
       "type": "integer"
     },
     "chapter_start": {
       "default": 0,
       "description": "First chapter to download (1-indexed). 0 means start from chapter 1.",
+      "minimum": 0,
       "title": "Chapter Start",
       "type": "integer"
     },
     "chapter_end": {
       "default": 0,
       "description": "Last chapter to download (inclusive). 0 means download to the last chapter.",
+      "minimum": 0,
       "title": "Chapter End",
       "type": "integer"
     },
@@ -127,7 +140,7 @@
     },
     "validate_only": {
       "default": false,
-      "description": "If True, verify that the URL is reachable and the token is valid (by fetching novel info) without performing the actual download. Returns success=True and output_file='' if validation passes.",
+      "description": "If True, verify public novel information without downloading chapters. This does not validate the token or access to paid chapters. Returns success=True and output_file='' if validation passes.",
       "title": "Validate Only",
       "type": "boolean"
     }

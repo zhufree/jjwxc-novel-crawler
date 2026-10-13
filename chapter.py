@@ -36,6 +36,8 @@ def parse_chapters(cdic, novel_id, config):
             if config.custom_vol:
                 v = re.sub(r'\$1', str(vcount), config.custom_vol)
                 v = re.sub(r'\$2', i["chaptername"], v)
+                if config.format_type != 'txt':
+                    v = html.escape(v)
             data.roll_sign.append(v)
             data.roll_sign_place.append(i["chapterid"])
         else:
@@ -71,11 +73,12 @@ def build_index(chapter_data, loc, config):
     :return: 目录列表
     """
     index = []
+    locked_ids = set(loc)
     for idx, url in enumerate(chapter_data.href_list):
         m = re.search(r'chapterId=(\d+)', url)
         chap_id = m.group(1) if m else url.split('=')[-1]
         title = ''
-        if chap_id in loc:
+        if chap_id in locked_ids:
             title += "[锁]"
         title += chap_id + " "
         title += chapter_data.titleindex[idx].strip() + " "
@@ -86,7 +89,7 @@ def build_index(chapter_data, loc, config):
     return index
 
 
-def build_title(chapter_url, chapter_data, config):
+def build_title(chapter_url, chapter_data, config, idx=None):
     """
     构建章节标题
     :param chapter_url: 章节URL
@@ -96,7 +99,8 @@ def build_title(chapter_url, chapter_data, config):
     """
     m = re.search(r'chapterId=(\d+)', chapter_url)
     chap_id = m.group(1) if m else chapter_url.split('=')[-1]
-    idx = chapter_data.href_list.index(chapter_url)
+    if idx is None:
+        idx = chapter_data.href_list.index(chapter_url)
     title = ''
 
     if config.custom_title:
@@ -118,12 +122,13 @@ def build_title(chapter_url, chapter_data, config):
     return title
 
 
-def build_content_title(chapter_url, chapter_data, config):
+def build_content_title(chapter_url, chapter_data, config, idx=None):
     """构建写入章节正文的标题，允许显示选项补充自定义标题。"""
-    title = build_title(chapter_url, chapter_data, config)
+    if idx is None:
+        idx = chapter_data.href_list.index(chapter_url)
+    title = build_title(chapter_url, chapter_data, config, idx=idx)
 
     if config.custom_title and config.show_title and '$2' not in config.custom_title:
-        idx = chapter_data.href_list.index(chapter_url)
         chapter_title = chapter_data.titleindex[idx].strip()
         if chapter_title:
             chapter_title = utils.convert_text(chapter_title, config.state)
@@ -164,8 +169,8 @@ def format_content(title, raw_data, config, fill_num):
         if is_txt:
             content += texm + "\n"
         else:
-            content += '<p>' + texm + '</p>'
-        return content, True
+            content += '<p>' + html.escape(texm) + '</p></body></html>'
+        return utils.convert_text(content, config.state), True
     else:
         # 添加章节信息
         if config.show_chinfo:
